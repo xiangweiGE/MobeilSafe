@@ -16,6 +16,7 @@ import android.app.AlertDialog.Builder;
 import android.content.DialogInterface;
 import android.content.DialogInterface.OnClickListener;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
@@ -61,22 +62,22 @@ public class SplashActivity extends ActionBarActivity {
 				showUpdateDialog();
 				break;
 			case CODE_URL_ERROR:
-				errorHome();
+				enterHome();
 				Toast.makeText(SplashActivity.this, "URL解析错误",
 						Toast.LENGTH_SHORT).show();
 				break;
 			case CODE_IOE_ERROR:
-				errorHome();
+				enterHome();
 				Toast.makeText(SplashActivity.this, "网络连接错误",
 						Toast.LENGTH_SHORT).show();
 				break;
 			case CODE_JSON_ERROR:
-				errorHome();
+				enterHome();
 				Toast.makeText(SplashActivity.this, "JSON解析错误",
 						Toast.LENGTH_SHORT).show();
 				break;
 			case CODE_ENTER_HOME:
-				errorHome();
+				enterHome();
 				break;
 			default:
 				break;
@@ -117,7 +118,7 @@ public class SplashActivity extends ActionBarActivity {
 			@Override
 			public void onClick(DialogInterface dialog, int which) {
 				// TODO Auto-generated method stub
-				errorHome();
+				enterHome();
 			}
 		});
 		builder.show();
@@ -153,13 +154,17 @@ public class SplashActivity extends ActionBarActivity {
 				public void onSuccess(ResponseInfo<File> arg0) {
 					System.out.println("下载成功");
 					// 跳转到系统下载页面
-					Intent intent = new Intent(Intent.ACTION_VIEW);
+					try{Intent intent = new Intent(Intent.ACTION_VIEW);
 					intent.addCategory(Intent.CATEGORY_DEFAULT);
 					/*intent.setDataAndType(Uri.fromFile(arg0.result),
 							"application/vnd.android.package-archive");*/
 					// startActivity(intent);
 					startActivityForResult(intent, 0);// 如果用户取消安装的话,
-														// 会返回结果,回调方法onActivityResult
+														// 会返回结果,回调方法onActivityResult;
+					}catch(Exception e){
+						e.printStackTrace();
+					};
+					
 				}
 
 				// 下载失败
@@ -179,13 +184,24 @@ public class SplashActivity extends ActionBarActivity {
 	/**
 	 * 返回主页面
 	 */
-	protected void errorHome() {
+	protected void enterHome() {
 		// 返回主页面
 		Intent intent = new Intent(this, HomeActivity.class);
 		startActivity(intent);
 		finish();
 	}
-
+	
+	/**
+	 * 如果用户取消安装，返回此方法
+	 * @return 
+	 */
+	@Override
+	protected void onActivityResult(int arg0, int arg1, Intent arg2) {
+		// TODO Auto-generated method stub
+		enterHome();
+		super.onActivityResult(arg0, arg1, arg2);
+	}
+	
 	/**
 	 * 检查版本更新
 	 */
@@ -193,6 +209,9 @@ public class SplashActivity extends ActionBarActivity {
 		final long startTime = System.currentTimeMillis();
 		// 网络连接不能在主线程中执行
 		new Thread() {
+
+			private SharedPreferences mPref;
+			private Boolean autoupdate;
 
 			public void run() {
 				Message msg = Message.obtain();
@@ -219,9 +238,13 @@ public class SplashActivity extends ActionBarActivity {
 						mdownloadUrl = jo.getString("downloadUrl");
 
 						if (mversionCode > getVersionCode()) {
-							// 表示版本有更新
-							msg.what = CODE_UPDATE_DIALOG;
-							System.out.println("++++++++++++++++版本号有升级");
+							mPref = getSharedPreferences("config", MODE_PRIVATE);
+							autoupdate = mPref.getBoolean("auto_update", true);
+							if(autoupdate){
+								msg.what = CODE_UPDATE_DIALOG;
+								System.out.println("++++++++++++++++版本号有升级");
+							}else{
+								msg.what = CODE_ENTER_HOME;}
 						}
 					}
 				} catch (MalformedURLException e) {
